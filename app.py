@@ -4,16 +4,12 @@ import os
 app = Flask(__name__)
 
 
-# =========================
-# Basic
-# =========================
-
 @app.route("/")
 def home():
     return jsonify({
         "status": "online",
         "service": "ServerAdmin Backend",
-        "version": "2.0.0"
+        "version": "2.1.0"
     })
 
 
@@ -23,10 +19,6 @@ def health():
         "status": "ok"
     })
 
-
-# =========================
-# Environment Status
-# =========================
 
 @app.route("/api/status")
 def api_status():
@@ -43,48 +35,24 @@ def api_status():
     })
 
 
-# =========================
-# Aternos Login
-# =========================
-
 def get_aternos():
-    try:
-        from python_aternos import Client
+    from python_aternos import Client
 
-        username = os.getenv("ATERNOS_USERNAME")
-        password = os.getenv("ATERNOS_PASSWORD")
+    username = os.getenv("ATERNOS_USERNAME")
+    password = os.getenv("ATERNOS_PASSWORD")
 
-        if not username or not password:
-            return None, "Aternos credentials are missing"
+    if not username or not password:
+        raise Exception("Aternos credentials are missing")
 
-        client = Client(
-            username,
-            password
-        )
+    return Client.from_credentials(username, password)
 
-        return client, None
-
-    except Exception as e:
-        return None, str(e)
-
-
-# =========================
-# Get Aternos Servers
-# =========================
 
 @app.route("/api/aternos/servers")
 def aternos_servers():
-
-    client, error = get_aternos()
-
-    if error:
-        return jsonify({
-            "success": False,
-            "error": error
-        }), 500
-
     try:
-        servers = client.list_servers()
+        client = get_aternos()
+
+        servers = client.list_servers(cache=False)
 
         result = []
 
@@ -108,44 +76,29 @@ def aternos_servers():
         }), 500
 
 
-# =========================
-# Server Status
-# =========================
-
 @app.route("/api/aternos/server/<server_name>/status")
 def server_status(server_name):
-
-    client, error = get_aternos()
-
-    if error:
-        return jsonify({
-            "success": False,
-            "error": error
-        }), 500
-
     try:
-        servers = client.list_servers()
+        client = get_aternos()
+
+        servers = client.list_servers(cache=False)
 
         for server in servers:
-
             name = getattr(server, "name", "")
 
             if name.lower() == server_name.lower():
 
+                try:
+                    server.fetch()
+                except Exception:
+                    pass
+
                 return jsonify({
                     "success": True,
                     "server": {
-                        "name": name,
-                        "address": getattr(
-                            server,
-                            "address",
-                            None
-                        ),
-                        "status": getattr(
-                            server,
-                            "status",
-                            None
-                        )
+                        "name": getattr(server, "name", None),
+                        "address": getattr(server, "address", None),
+                        "status": getattr(server, "status", None)
                     }
                 })
 
@@ -161,9 +114,95 @@ def server_status(server_name):
         }), 500
 
 
-# =========================
-# Run
-# =========================
+@app.route("/api/aternos/server/<server_name>/start", methods=["POST", "GET"])
+def start_server(server_name):
+    try:
+        client = get_aternos()
+        servers = client.list_servers(cache=False)
+
+        for server in servers:
+            name = getattr(server, "name", "")
+
+            if name.lower() == server_name.lower():
+                server.start()
+
+                return jsonify({
+                    "success": True,
+                    "message": "Server start requested",
+                    "server": name
+                })
+
+        return jsonify({
+            "success": False,
+            "error": "Server not found"
+        }), 404
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route("/api/aternos/server/<server_name>/stop", methods=["POST", "GET"])
+def stop_server(server_name):
+    try:
+        client = get_aternos()
+        servers = client.list_servers(cache=False)
+
+        for server in servers:
+            name = getattr(server, "name", "")
+
+            if name.lower() == server_name.lower():
+                server.stop()
+
+                return jsonify({
+                    "success": True,
+                    "message": "Server stop requested",
+                    "server": name
+                })
+
+        return jsonify({
+            "success": False,
+            "error": "Server not found"
+        }), 404
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route("/api/aternos/server/<server_name>/restart", methods=["POST", "GET"])
+def restart_server(server_name):
+    try:
+        client = get_aternos()
+        servers = client.list_servers(cache=False)
+
+        for server in servers:
+            name = getattr(server, "name", "")
+
+            if name.lower() == server_name.lower():
+                server.restart()
+
+                return jsonify({
+                    "success": True,
+                    "message": "Server restart requested",
+                    "server": name
+                })
+
+        return jsonify({
+            "success": False,
+            "error": "Server not found"
+        }), 404
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 10000))
@@ -171,4 +210,4 @@ if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
         port=port
-        )
+    )
