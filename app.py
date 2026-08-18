@@ -9,7 +9,7 @@ def home():
     return jsonify({
         "status": "online",
         "service": "ServerAdmin Backend",
-        "version": "2.1.0"
+        "version": "2.2.0"
     })
 
 
@@ -29,9 +29,11 @@ def api_status():
         "backend": "online",
         "username_found": bool(username),
         "password_found": bool(password),
-        "aternos_credentials": "configured"
-        if username and password
-        else "missing"
+        "aternos_credentials": (
+            "configured"
+            if username and password
+            else "missing"
+        )
     })
 
 
@@ -44,7 +46,20 @@ def get_aternos():
     if not username or not password:
         raise Exception("Aternos credentials are missing")
 
-    return Client.from_credentials(username, password)
+    client = Client()
+    client.login(username, password)
+
+    return client
+
+
+def find_server(client, server_name):
+    servers = client.account.list_servers(cache=False)
+
+    for server in servers:
+        if server.name.lower() == server_name.lower():
+            return server
+
+    return None
 
 
 @app.route("/api/aternos/servers")
@@ -52,7 +67,7 @@ def aternos_servers():
     try:
         client = get_aternos()
 
-        servers = client.list_servers(cache=False)
+        servers = client.account.list_servers(cache=False)
 
         result = []
 
@@ -80,32 +95,24 @@ def aternos_servers():
 def server_status(server_name):
     try:
         client = get_aternos()
+        server = find_server(client, server_name)
 
-        servers = client.list_servers(cache=False)
+        if server is None:
+            return jsonify({
+                "success": False,
+                "error": "Server not found"
+            }), 404
 
-        for server in servers:
-            name = getattr(server, "name", "")
-
-            if name.lower() == server_name.lower():
-
-                try:
-                    server.fetch()
-                except Exception:
-                    pass
-
-                return jsonify({
-                    "success": True,
-                    "server": {
-                        "name": getattr(server, "name", None),
-                        "address": getattr(server, "address", None),
-                        "status": getattr(server, "status", None)
-                    }
-                })
+        server.fetch()
 
         return jsonify({
-            "success": False,
-            "error": "Server not found"
-        }), 404
+            "success": True,
+            "server": {
+                "name": getattr(server, "name", None),
+                "address": getattr(server, "address", None),
+                "status": getattr(server, "status", None)
+            }
+        })
 
     except Exception as e:
         return jsonify({
@@ -114,28 +121,25 @@ def server_status(server_name):
         }), 500
 
 
-@app.route("/api/aternos/server/<server_name>/start", methods=["POST", "GET"])
+@app.route("/api/aternos/server/<server_name>/start")
 def start_server(server_name):
     try:
         client = get_aternos()
-        servers = client.list_servers(cache=False)
+        server = find_server(client, server_name)
 
-        for server in servers:
-            name = getattr(server, "name", "")
+        if server is None:
+            return jsonify({
+                "success": False,
+                "error": "Server not found"
+            }), 404
 
-            if name.lower() == server_name.lower():
-                server.start()
-
-                return jsonify({
-                    "success": True,
-                    "message": "Server start requested",
-                    "server": name
-                })
+        server.start()
 
         return jsonify({
-            "success": False,
-            "error": "Server not found"
-        }), 404
+            "success": True,
+            "message": "Server start requested",
+            "server": server.name
+        })
 
     except Exception as e:
         return jsonify({
@@ -144,28 +148,25 @@ def start_server(server_name):
         }), 500
 
 
-@app.route("/api/aternos/server/<server_name>/stop", methods=["POST", "GET"])
+@app.route("/api/aternos/server/<server_name>/stop")
 def stop_server(server_name):
     try:
         client = get_aternos()
-        servers = client.list_servers(cache=False)
+        server = find_server(client, server_name)
 
-        for server in servers:
-            name = getattr(server, "name", "")
+        if server is None:
+            return jsonify({
+                "success": False,
+                "error": "Server not found"
+            }), 404
 
-            if name.lower() == server_name.lower():
-                server.stop()
-
-                return jsonify({
-                    "success": True,
-                    "message": "Server stop requested",
-                    "server": name
-                })
+        server.stop()
 
         return jsonify({
-            "success": False,
-            "error": "Server not found"
-        }), 404
+            "success": True,
+            "message": "Server stop requested",
+            "server": server.name
+        })
 
     except Exception as e:
         return jsonify({
@@ -174,28 +175,25 @@ def stop_server(server_name):
         }), 500
 
 
-@app.route("/api/aternos/server/<server_name>/restart", methods=["POST", "GET"])
+@app.route("/api/aternos/server/<server_name>/restart")
 def restart_server(server_name):
     try:
         client = get_aternos()
-        servers = client.list_servers(cache=False)
+        server = find_server(client, server_name)
 
-        for server in servers:
-            name = getattr(server, "name", "")
+        if server is None:
+            return jsonify({
+                "success": False,
+                "error": "Server not found"
+            }), 404
 
-            if name.lower() == server_name.lower():
-                server.restart()
-
-                return jsonify({
-                    "success": True,
-                    "message": "Server restart requested",
-                    "server": name
-                })
+        server.restart()
 
         return jsonify({
-            "success": False,
-            "error": "Server not found"
-        }), 404
+            "success": True,
+            "message": "Server restart requested",
+            "server": server.name
+        })
 
     except Exception as e:
         return jsonify({
@@ -210,4 +208,4 @@ if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
         port=port
-    )
+        )
