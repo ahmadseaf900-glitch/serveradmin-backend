@@ -9,7 +9,7 @@ def home():
     return jsonify({
         "status": "online",
         "service": "ServerAdmin Backend",
-        "version": "1.0.0"
+        "version": "1.1.0"
     })
 
 
@@ -22,12 +22,17 @@ def health():
 
 @app.route("/api/status")
 def api_status():
+    username = os.getenv("adminservers_bot")
+    password = os.getenv("111seafalden111")
+
     return jsonify({
         "backend": "online",
-        "aternos": "ready"
+        "aternos_credentials": "configured"
+        if username and password
+        else "missing"
     })
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    port = int(os.getenv("PORT", 10000))
+    app.run(host="0.0.0.0", port=port) 
