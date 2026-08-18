@@ -1,3 +1,4 @@
+
 from flask import Flask, jsonify
 import os
 
@@ -27,6 +28,8 @@ def api_status():
 
     return jsonify({
         "backend": "online",
+        "username_found": bool(username),
+        "password_found": bool(password),
         "aternos_credentials": "configured"
         if username and password
         else "missing"
